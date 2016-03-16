@@ -1,0 +1,12 @@
+{
+    "id" : "Repl",
+    "version" : "0.1.0-SNAPSHOT",
+    "author" : "automenta",
+    "displayName" : "Repl",
+    "description" : "Repl accepting connections to control and inspect runtime",
+    "dependencies" :
+    [
+        {"id": "Core", "minVersion": "1.0.0"}
+    ],
+    "serverSideOnly" : true
+}
