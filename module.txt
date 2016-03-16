@@ -8,5 +8,6 @@
     [
         {"id": "Core", "minVersion": "1.0.0"}
     ],
-    "serverSideOnly" : true
+    "serverSideOnly" : false,
+    "isGameplay" : "true"
 }

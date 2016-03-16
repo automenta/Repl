@@ -1,9 +1,6 @@
 package org.terasology.repl;
 
 
-
-import clojure.lang.IFn;
-import clojure.lang.RT;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.terasology.entitySystem.entity.EntityManager;
@@ -12,20 +9,28 @@ import org.terasology.entitySystem.event.ReceiveEvent;
 import org.terasology.entitySystem.systems.BaseComponentSystem;
 import org.terasology.entitySystem.systems.RegisterMode;
 import org.terasology.entitySystem.systems.RegisterSystem;
+import org.terasology.logic.ai.SimpleAISystem;
 import org.terasology.logic.inventory.InventoryComponent;
 import org.terasology.logic.inventory.InventoryManager;
 import org.terasology.logic.players.event.OnPlayerSpawnedEvent;
 import org.terasology.registry.In;
 import org.terasology.world.block.BlockManager;
 
-import static clojure.lang.RT.var;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.ServerSocket;
+import java.net.Socket;
+
 
 
 /**
+ * Javascript (nashorn) TCP (telnet) Repl for advanced botting control & telemetry
  * http://blog.avisi.nl/2015/05/18/how-to-inspect-a-legacy-java-application-with-the-clojure-repl/
  */
 @RegisterSystem(RegisterMode.ALWAYS)
-public class Repl extends BaseComponentSystem {
+public class Repl extends SimpleAISystem implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(Repl.class);
 
@@ -36,23 +41,48 @@ public class Repl extends BaseComponentSystem {
     @In
     EntityManager entityManager;
 
-    private void replStart()  {
-        //IFn plus = RT.var("clojure.core", "+");
-        //Object object = plus.invoke(1, 2);
-        //LOGGER.debug("plus invoked, result was: " + object);
+    final int port = 10002;
+    private Thread thread;
 
-        IFn require = RT.var("clojure.core", "require");
-        require.invoke(RT.readString("clojure.tools.nrepl.server"));
 
-        IFn server = var("clojure.tools.nrepl.server", "start-server");
-        server.invoke();
+    @Override
+    public void preBegin() {
+        thread = new Thread(this);
+        thread.start();
+    }
+
+    @Override
+    public void shutdown() {
+        thread.stop(); //TODO safer shutdown
+        thread = null;
+    }
+
+    @Override public void run() {
+        logger.info("repl listening on port" + port);
+        while (true) {
+            try (ServerSocket serverSocket = new ServerSocket(port);
+                 Socket clientSocket = serverSocket.accept();
+                 PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+                 BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()))) {
+
+                logger.info("client connected {}", clientSocket);
+                String inputLine;
+                while ((inputLine = in.readLine()) != null) {
+                    System.out.println("Received message: " + inputLine + " from " + clientSocket.toString());
+                    out.println(inputLine);
+                }
+                logger.info("client disconnected {}", clientSocket);
+            } catch (IOException e) {
+                logger.error("{}", e);
+            }
+        }
+
     }
 
     @ReceiveEvent(components = InventoryComponent.class)
     public void onPlayerSpawnedEvent(OnPlayerSpawnedEvent event, EntityRef player) {
 
-        new Thread(this::replStart).start();
-        logger.info("started repl");
+
 
 
 //        BlockItemFactory blockFactory = new BlockItemFactory(entityManager);
